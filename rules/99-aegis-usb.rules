@@ -1,0 +1,27 @@
+# Project Aegis - Zero-Trust USB Interception Rules
+# Install: sudo cp 99-aegis-usb.rules /etc/udev/rules.d/
+# Reload: sudo udevadm control --reload-rules
+
+# ──────────────────────────────────────────────────────────
+#  Rule 1: Block all USB mass-storage devices on insertion.
+#  Sets authorized=0 to prevent automatic mounting.
+#  The daemon must explicitly set authorized=1 after analysis.
+# ──────────────────────────────────────────────────────────
+ACTION=="add", SUBSYSTEM=="usb", ATTR{bDeviceClass}=="08", \
+    ATTR{authorized}="0", \
+    RUN+="/usr/local/bin/aegis-udev-notify.sh add '%k' '%E{ID_VENDOR_ID}' '%E{ID_MODEL_ID}' '%E{ID_SERIAL_SHORT}' '%E{DEVPATH}'"
+
+# ──────────────────────────────────────────────────────────
+#  Rule 2: Catch composite devices (class 0x00) that include
+#  mass-storage at the interface level.
+# ──────────────────────────────────────────────────────────
+ACTION=="add", SUBSYSTEM=="usb", ATTR{bDeviceClass}=="00", \
+    ATTR{bInterfaceClass}=="08", \
+    ATTR{authorized}="0", \
+    RUN+="/usr/local/bin/aegis-udev-notify.sh add '%k' '%E{ID_VENDOR_ID}' '%E{ID_MODEL_ID}' '%E{ID_SERIAL_SHORT}' '%E{DEVPATH}'"
+
+# ──────────────────────────────────────────────────────────
+#  Rule 3: Notify daemon on device removal.
+# ──────────────────────────────────────────────────────────
+ACTION=="remove", SUBSYSTEM=="usb", \
+    RUN+="/usr/local/bin/aegis-udev-notify.sh remove '%k' '' '' '' '%E{DEVPATH}'"

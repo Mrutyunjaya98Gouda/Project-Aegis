@@ -1,0 +1,17 @@
+[package]
+name = "aegis-analysis"
+version.workspace = true
+edition.workspace = true
+description = "Static and behavioral analysis engine for Project Aegis"
+
+[dependencies]
+aegis-common = { path = "../aegis-common" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }

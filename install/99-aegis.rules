@@ -1,0 +1,19 @@
+# SUBSYSTEM=="usb", ACTION=="add", TAG+="uaccess"
+# ────────────────────────────────────────────────────────────────
+#  Project Aegis — udev Rules
+#  Notifies the Aegis daemon on USB insertion/removal events.
+# ────────────────────────────────────────────────────────────────
+
+# All USB mass storage devices
+SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ACTION=="add", \
+    RUN+="/usr/local/bin/aegis-notify add %k"
+
+SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ACTION=="remove", \
+    RUN+="/usr/local/bin/aegis-notify remove %k"
+
+# All USB devices (for HID detection etc.)
+SUBSYSTEM=="usb", ACTION=="add", \
+    RUN+="/usr/local/bin/aegis-notify usb-add %k"
+
+SUBSYSTEM=="usb", ACTION=="remove", \
+    RUN+="/usr/local/bin/aegis-notify usb-remove %k"

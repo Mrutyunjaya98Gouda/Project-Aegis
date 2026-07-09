@@ -1,0 +1,70 @@
+PROJECT AEGIS - ZERO-TRUST USB SECURITY SUITE
+COMPREHENSIVE ARCHITECTURE & IMPLEMENTATION PLAN
+======================================================================
+Project Aegis is an industry-leading, cross-platform defense platform treating all external hardware as "hostile" until verified. It employs multi-stage kernel interception, behavioral isolation, and offline analysis.
+
+1. CORE ARCHITECTURE MODULES
+----------------------------------------------------------------------
+MODULE A: The Kernel Interceptors (The Guard)
+- Linux eBPF & udev Rules: Intercepts the sys_enter_mount syscall to hold flash drives in suspension.
+- Windows WDK Filter Driver: Catches IRP_MJ_PNP and IRP_MJ_CREATE packets to hold the mounting process in a pending state.
+- Hardware Write-Blocker (Software Emulated): Enforces a strict Read-Only state by blocking outbound SCSI commands.
+- Motherboard Protection (Power Kill-Switch): Drops USB port power to stop high-voltage surges (USB Killers).
+- Out-of-Band Wireless Detection: Cross-correlates USB insertion timestamps with host Wi-Fi/Bluetooth adapters to detect O.MG Cables.
+
+MODULE B: The Analysis Engine (The Brain)
+- Shannon Entropy Analysis: Scans memory buffers for extreme randomness (catches encrypted payload droppers).
+- YARA-X Signature Evaluation: Rapid signature detection mapped over memory buffers.
+- Threat-Intel Sync: Cron jobs to ingest global Indicators of Compromise (IOCs).
+- Local ML Anomaly Detection: Catches synthetic keyboard rhythms from BadUSBs using a local ONNX Machine Learning model.
+- Ephemeral MicroVM Detonation: Safely detonates flagged files in a fast-booting MicroVM (Firecracker/QEMU) against a disposable OS.
+
+MODULE C: Identity & Spoof Defense
+- HID Spoof Validation: Catches mass storage devices attempting to stealthily claim standard HID keyboard properties.
+- Hardware Digital Passport: Fuses VID, PID, Serial Number, and Revision ID to generate an obfuscated Hash token.
+- Deception Technology (Honey-Tokens): Implants a tracking "Honey-File" on verified USBs.
+
+MODULE D: Forensics, Compliance & Integration
+- Slack Space Scanning: Analyzes unallocated raw sectors for intentionally hidden boot code.
+- Tamper-proof JSON Logging: Append-only auditing logs standardized for NIST SP 800-53.
+- Role-Based Access Control (RBAC): Integrates with Active Directory.
+- Physical Topology Geo-fencing: Defines block rules based on the physical motherboard connection points (Front vs Rear I/O).
+- Cross-Platform IPC Daemon: Rust daemon stitching drivers to the UI via Unix Domain Sockets and Named Pipes.
+
+MODULE E: User Experience & Dashboard (The Face)
+- Zero-Trust Tauri Dashboard: Built with React, TypeScript, and modern glassmorphism UI.
+- Live Hardware Map: Visualizes the USB device tree and telemetry.
+- Sanitize & Trust (CDR): Disarms macros and isolates safe file types (PDF, txt) to provide safe functional access.
+- Companion Mobile App / Push Approvals: Allows admins to approve restricted mounts via smartphones.
+- Valet / Kiosk Mode: Places endpoint in total lockdown regarding hardware insertion when screen is locked.
+
+
+2. EXTREMELY DETAILED ROADMAP
+----------------------------------------------------------------------
+PHASE 1: Foundation & Planning (Completed)
+- Architect the complete suite methodology and finalize documentation.
+
+PHASE 2: Kernel & Interception Layer
+- Draft Windows WDF filter driver targeting GUID_DEVINTERFACE_DISK.
+- Draft Linux udev rules and eBPF overrides.
+- Implement software write-blockers and Power Kill-Switches.
+
+PHASE 3: The Rust Background Daemon
+- Initialize the unified main.rs controller daemon.
+- Establish cross-platform Inter-Process Communication (IPC).
+- Implement RBAC, topology geo-fencing, and tamper-proof logging.
+
+PHASE 4: Analysis Engine Construction
+- Build Shannon Entropy models, YARA-X logic, hardware hashing, and ML Keystroke timer analysis.
+
+PHASE 5: The UI/UX Dashboard
+- Deploy Tauri + React template and create interactive hardware map.
+- Develop "Sanitize & Trust" workflows and Kiosk modes.
+
+PHASE 6: Advanced Dynamic Sandboxing
+- Integrate Firecracker/QEMU logic into the Daemon.
+- Hook suspicious payloads into the MicroVM to test detonation.
+
+PHASE 7: Deployment & QA
+- Extreme performance and minimal footprint testing.
+- Full QA matrix and cross-platform build processes (MSI / Deb).

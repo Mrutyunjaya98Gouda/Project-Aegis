@@ -1,0 +1,4 @@
+target/
+aegis-ui/node_modules/
+aegis-ui/dist/
+aegis-ui/src-tauri/target/

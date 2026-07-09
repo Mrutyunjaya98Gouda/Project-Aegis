@@ -1,0 +1,33 @@
+[Unit]
+Description=Project Aegis — Zero-Trust USB Security Daemon
+Documentation=https://github.com/cyberghost9813/aegis
+After=network.target syslog.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/bin/aegis-daemon
+ExecStopPost=/bin/rm -f /tmp/aegis.sock
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+# Environment
+Environment=AEGIS_CONFIG=/etc/aegis/aegis.toml
+Environment=RUST_LOG=info
+
+# Security hardening
+PrivateTmp=false
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/log/aegis /tmp /sys/block
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aegis-daemon
+
+[Install]
+WantedBy=multi-user.target

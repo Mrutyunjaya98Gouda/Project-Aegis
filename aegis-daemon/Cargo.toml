@@ -1,0 +1,45 @@
+[package]
+name = "aegis-daemon"
+version.workspace = true
+edition.workspace = true
+description = "Background daemon for Project Aegis USB security"
+
+[dependencies]
+aegis-common = { path = "../aegis-common" }
+aegis-analysis = { path = "../aegis-analysis" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+toml = { workspace = true }
+
+[package.metadata.deb]
+name = "aegis-daemon"
+maintainer = "Project Aegis Team"
+copyright = "2024, Project Aegis Team"
+license-file = ["../LICENSE", "0"]
+extended-description = """\
+Project Aegis Zero-Trust USB Security Suite daemon.
+Intercepts and analyzes USB devices via sysfs and Shannon
+entropy analysis before allowing them to mount."""
+depends = "$auto"
+section = "security"
+priority = "optional"
+assets = [
+    ["../target/release/aegis-daemon", "usr/local/bin/", "755"],
+    ["../config/aegis.toml", "etc/aegis/aegis.toml", "640"],
+    ["../install/aegis-daemon.service", "lib/systemd/system/aegis-daemon.service", "644"],
+    ["../install/99-aegis.rules", "etc/udev/rules.d/99-aegis.rules", "644"],
+    ["../rules/yara/aegis_base.yar", "etc/aegis/yara/aegis_base.yar", "644"],
+]
+maintainer-scripts = "../install"
+systemd-units = { enable = true }
+conf-files = ["/etc/aegis/aegis.toml"]
+

@@ -1,0 +1,62 @@
+# ═══════════════════════════════════════════════════════
+#  PROJECT AEGIS — Default Configuration
+#  Zero-Trust USB Security Suite
+# ═══════════════════════════════════════════════════════
+
+[daemon]
+socket_path = "/tmp/aegis.sock"
+max_clients = 10
+auth_timeout_secs = 300
+kiosk_mode = false
+
+[analysis]
+entropy_threshold = 7.5
+yara_enabled = true
+yara_rules_path = "rules/yara"
+hid_spoof_detection = true
+ml_anomaly_detection = false
+sandbox_enabled = false
+honey_tokens_enabled = false
+
+[policy]
+default_action = "quarantine"
+trusted_passports = []
+
+[policy.geofence_rules.rear_io]
+location = "rear_i_o"
+allowed = true
+
+[policy.geofence_rules.front_panel]
+location = "front_panel"
+allowed = true
+
+[policy.geofence_rules.hub]
+location = "hub"
+allowed = true
+
+[policy.roles.admin]
+can_authorize = true
+can_block = true
+can_view_logs = true
+can_configure = true
+can_eject = true
+
+[policy.roles.user]
+can_authorize = false
+can_block = false
+can_view_logs = true
+can_configure = false
+can_eject = true
+
+[policy.roles.kiosk]
+can_authorize = false
+can_block = false
+can_view_logs = false
+can_configure = false
+can_eject = false
+
+[logging]
+log_file = "/tmp/aegis/audit.jsonl"
+hmac_key = "change-me-in-production-use-a-strong-random-key"
+max_size_mb = 100
+level = "info"
