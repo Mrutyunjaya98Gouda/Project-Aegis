@@ -50,6 +50,17 @@ pub enum DaemonCommand {
         offset: usize,
     },
 
+    /// Raw udev event notification from external script.
+    DeviceEvent {
+        action: String,
+        kernel: String,
+        vendor_id: String,
+        model_id: String,
+        serial: String,
+        devpath: String,
+        timestamp: String,
+    },
+
     /// Shutdown the daemon gracefully.
     Shutdown,
 }
@@ -86,6 +97,9 @@ pub enum DaemonResponse {
         entries: Vec<serde_json::Value>,
         total_count: usize,
     },
+
+    /// Generic success response for operations that don't return data.
+    Success { message: String },
 
     /// A real-time event pushed to connected clients.
     Event(DeviceEvent),

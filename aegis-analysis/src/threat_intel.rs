@@ -1,5 +1,8 @@
 /// Threat Intelligence Synchronization Module (Stub)
 ///
+/// NOTE: This module is a stub and is NOT currently integrated into the 
+/// background daemon tasks.
+///
 /// This module defines the interface for periodically pulling updated
 /// YARA rules and Indicators of Compromise (IOCs) from external threat
 /// intelligence feeds.

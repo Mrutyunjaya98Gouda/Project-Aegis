@@ -21,7 +21,7 @@ EOF
 
 # Send to daemon socket if it exists.
 if [ -S "$SOCKET" ]; then
-    echo "$JSON" | socat - UNIX-CONNECT:"$SOCKET" 2>/dev/null &
+    echo "$JSON" | socat - UNIX-CONNECT:"$SOCKET" 2>/dev/null
 fi
 
 # Log the event regardless.

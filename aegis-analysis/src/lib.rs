@@ -14,15 +14,33 @@ pub struct AnalysisPipeline {
     pub entropy_threshold: f64,
     pub yara_enabled: bool,
     pub hid_spoof_enabled: bool,
+    pub yara_engine: Option<yara_engine::YaraEngine>,
 }
 
 impl AnalysisPipeline {
-    pub fn new(entropy_threshold: f64, yara_enabled: bool, hid_spoof_enabled: bool) -> Self {
+    pub fn new(entropy_threshold: f64, yara_enabled: bool, hid_spoof_enabled: bool, yara_rules_path: Option<&std::path::Path>) -> Self {
+        let yara_engine = if yara_enabled {
+            if let Some(path) = yara_rules_path {
+                match yara_engine::YaraEngine::new(path) {
+                    Ok(engine) => Some(engine),
+                    Err(e) => {
+                        tracing::error!("Failed to initialize YARA engine: {}", e);
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         Self {
             entropy_enabled: true,
             entropy_threshold,
             yara_enabled,
             hid_spoof_enabled,
+            yara_engine,
         }
     }
 
@@ -55,14 +73,16 @@ impl AnalysisPipeline {
             }
         }
 
-        // 3. YARA Signature Scan (placeholder — real engine in yara_engine module)
+        // 3. YARA Signature Scan (using yara-x)
         if self.yara_enabled {
-            for (filename, buffer) in file_buffers {
-                let result = yara_engine::scan_buffer(filename, buffer);
-                if result.flagged {
-                    penalty += 30;
+            if let Some(engine) = &self.yara_engine {
+                for (filename, buffer) in file_buffers {
+                    let result = engine.scan_buffer(filename, buffer);
+                    if result.flagged {
+                        penalty += 30;
+                    }
+                    results.push(result);
                 }
-                results.push(result);
             }
         }
 
@@ -88,7 +108,7 @@ mod tests {
             3,
             "/sys/bus/usb/001/003".to_string(),
         );
-        let pipeline = AnalysisPipeline::new(7.5, false, true);
+        let pipeline = AnalysisPipeline::new(7.5, false, true, None);
 
         let clean_data = b"Hello, this is a normal text file with low entropy content.";
         let buffers: Vec<(&str, &[u8])> = vec![("readme.txt", clean_data)];

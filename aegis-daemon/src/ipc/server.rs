@@ -54,6 +54,9 @@ async fn handle_client(
     audit_logger: Arc<RwLock<AuditLogger>>,
     pipeline: Arc<AnalysisPipeline>,
 ) -> anyhow::Result<()> {
+    let peer_cred = stream.peer_cred()?;
+    let uid = peer_cred.uid();
+    
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
@@ -80,7 +83,7 @@ async fn handle_client(
         {
             Ok(msg) => {
                 let resp_payload =
-                    super::handler::handle_command(msg.payload, &state, &audit_logger, &pipeline)
+                    super::handler::handle_command(msg.payload, &state, &audit_logger, &pipeline, uid)
                         .await;
                 aegis_common::ipc::IpcMessage::with_id(msg.id, resp_payload)
             }

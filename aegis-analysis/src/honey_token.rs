@@ -5,6 +5,9 @@ use uuid::Uuid;
 
 /// Honey-Token File Generation Module
 ///
+/// NOTE: This module is NOT currently integrated into the main application. 
+/// It serves as a proof-of-concept for future tracking capabilities.
+///
 /// Plants invisible tracking files on approved USB drives. If the USB
 /// is later connected to a compromised machine that copies files,
 /// these honey-tokens can be detected when they "phone home" (via

@@ -79,6 +79,7 @@ log_ok "Binary installed."
 # ── Step 3: Install configuration ──
 log_info "[3/6] Installing configuration to $INSTALL_CONFIG_DIR..."
 mkdir -p "$INSTALL_CONFIG_DIR"
+chmod 700 "$INSTALL_CONFIG_DIR"
 if [[ ! -f "$INSTALL_CONFIG_DIR/aegis.toml" ]]; then
     # Generate a strong random HMAC key
     HMAC_KEY=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 64 | head -n 1 || openssl rand -hex 32)
@@ -88,9 +89,11 @@ if [[ ! -f "$INSTALL_CONFIG_DIR/aegis.toml" ]]; then
     # Update log path to production location
     sed -i "s|log_file = \"/tmp/aegis/audit.jsonl\"|log_file = \"/var/log/aegis/audit.jsonl\"|g" \
         "$INSTALL_CONFIG_DIR/aegis.toml"
+    chmod 600 "$INSTALL_CONFIG_DIR/aegis.toml"
     log_ok "Config installed with generated HMAC key."
 else
     log_warn "Config already exists at $INSTALL_CONFIG_DIR/aegis.toml — skipping (no overwrite)."
+    chmod 600 "$INSTALL_CONFIG_DIR/aegis.toml"
 fi
 
 # ── Step 4: Create log directory ──
@@ -100,8 +103,10 @@ chmod 700 "$INSTALL_LOG_DIR"
 log_ok "Log directory ready."
 
 # ── Step 5: Install udev rules ──
-log_info "[5/6] Installing udev rules..."
-cp install/99-aegis.rules "$INSTALL_UDEV"
+log_info "[5/6] Installing udev rules and notify script..."
+cp scripts/aegis-udev-notify.sh /usr/local/bin/aegis-udev-notify.sh
+chmod +x /usr/local/bin/aegis-udev-notify.sh
+cp rules/99-aegis-usb.rules "$INSTALL_UDEV"
 udevadm control --reload-rules
 udevadm trigger
 log_ok "udev rules installed and reloaded."

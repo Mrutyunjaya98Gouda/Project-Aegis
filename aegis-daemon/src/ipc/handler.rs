@@ -13,7 +13,45 @@ pub async fn handle_command(
     state: &Arc<RwLock<AppState>>,
     audit_logger: &Arc<RwLock<AuditLogger>>,
     _pipeline: &Arc<AnalysisPipeline>,
+    uid: u32,
 ) -> DaemonResponse {
+    // Basic RBAC mapping: UID 0 is admin, others are user.
+    // Real implementation could map specific UIDs or group memberships.
+    let role_name = if uid == 0 { "admin" } else { "user" };
+
+    let has_permission = |cmd: &DaemonCommand, perms: &aegis_common::config::RolePermissions| -> bool {
+        match cmd {
+            DaemonCommand::Ping => true,
+            DaemonCommand::ListDevices => true,
+            DaemonCommand::GetDevice { .. } => true,
+            DaemonCommand::AuthorizeDevice { .. } => perms.can_authorize,
+            DaemonCommand::BlockDevice { .. } => perms.can_block,
+            DaemonCommand::EjectDevice { .. } => perms.can_eject,
+            DaemonCommand::RescanDevice { .. } => perms.can_authorize, // same as authorize
+            DaemonCommand::DeviceEvent { .. } => true,                 // System internal message
+            DaemonCommand::GetConfig => perms.can_view_logs,           // safe read
+            DaemonCommand::UpdateConfig { .. } => perms.can_configure,
+            DaemonCommand::GetAuditLog { .. } => perms.can_view_logs,
+            DaemonCommand::Shutdown => perms.can_configure,            // admin level
+        }
+    };
+
+    let has_access = {
+        let state_read = state.read().await;
+        if let Some(perms) = state_read.config.policy.roles.get(role_name) {
+            has_permission(&command, perms)
+        } else {
+            false // Deny if role not found
+        }
+    };
+
+    if !has_access {
+        return DaemonResponse::Error {
+            code: 403,
+            message: format!("Role '{role_name}' lacks permission for this command"),
+        };
+    }
+
     match command {
         // ── Ping / Health Check ──
         DaemonCommand::Ping => {
@@ -52,62 +90,58 @@ pub async fn handle_command(
             read_only: _,
         } => {
             let mut state = state.write().await;
-            match state.update_device_status(&session_id, DeviceStatus::Authorized) {
-                Some(old_status) => {
-                    // Log the authorization.
-                    let mut logger = audit_logger.write().await;
-                    let _ = logger.log(
-                        "policy",
-                        "device_authorized",
-                        2,
-                        &format!("Device {session_id} authorized"),
-                        serde_json::json!({
-                            "session_id": session_id,
-                            "old_status": format!("{old_status}"),
-                        }),
-                    );
+            if let Some(device) = state.get_device_mut(&session_id) {
+                device.status = DeviceStatus::Authorized;
+                let _ = crate::interception::power_monitor::restore_port_power(&device.sysfs_path);
+                
+                let mut logger = audit_logger.write().await;
+                let _ = logger.log(
+                    "policy",
+                    "device_authorized",
+                    2,
+                    &format!("Device {session_id} authorized"),
+                    serde_json::json!({
+                        "session_id": session_id,
+                    }),
+                );
 
-                    DaemonResponse::DeviceActionResult {
-                        session_id,
-                        new_status: DeviceStatus::Authorized,
-                        message: "Device authorized for mounting".to_string(),
-                    }
+                DaemonResponse::DeviceActionResult {
+                    session_id,
+                    new_status: DeviceStatus::Authorized,
+                    message: "Device authorized for mounting".to_string(),
                 }
-                None => DaemonResponse::Error {
+            } else {
+                DaemonResponse::Error {
                     code: 404,
                     message: format!("Device {session_id} not found"),
-                },
+                }
             }
         }
 
         // ── Block Device ──
         DaemonCommand::BlockDevice { session_id, reason } => {
             let mut state = state.write().await;
-            match state.update_device_status(&session_id, DeviceStatus::Blocked) {
-                Some(old_status) => {
-                    let mut logger = audit_logger.write().await;
-                    let _ = logger.log(
-                        "policy",
-                        "device_blocked",
-                        5,
-                        &format!("Device {session_id} blocked: {reason}"),
-                        serde_json::json!({
-                            "session_id": session_id,
-                            "reason": reason,
-                            "old_status": format!("{old_status}"),
-                        }),
-                    );
-
-                    DaemonResponse::DeviceActionResult {
-                        session_id,
-                        new_status: DeviceStatus::Blocked,
-                        message: format!("Device blocked: {reason}"),
-                    }
+            let mut logger = audit_logger.write().await;
+            if let Some(device) = state.get_device_mut(&session_id) {
+                device.status = DeviceStatus::Blocked;
+                let _ = crate::interception::power_monitor::kill_port_power(&device.sysfs_path);
+                let _ = logger.log(
+                    "policy",
+                    "device_blocked",
+                    8,
+                    &format!("Administrator blocked device: {reason}"),
+                    serde_json::json!({ "session_id": session_id, "reason": reason }),
+                );
+                DaemonResponse::DeviceActionResult {
+                    session_id,
+                    new_status: DeviceStatus::Blocked,
+                    message: format!("Device blocked: {reason}"),
                 }
-                None => DaemonResponse::Error {
+            } else {
+                DaemonResponse::Error {
                     code: 404,
                     message: format!("Device {session_id} not found"),
-                },
+                }
             }
         }
 
@@ -213,6 +247,16 @@ pub async fn handle_command(
                     message: format!("Failed to read audit log: {e}"),
                 },
             }
+        }
+
+        // ── Device Event (External Notify Script) ──
+        DaemonCommand::DeviceEvent { action, devpath, kernel, vendor_id, model_id, .. } => {
+            tracing::info!(
+                "Received external udev notification: {} for {} ({}:{}) at {}",
+                action, kernel, vendor_id, model_id, devpath
+            );
+            // We just acknowledge it. The internal netlink monitor handles state changes.
+            DaemonResponse::Success { message: "Event acknowledged".to_string() }
         }
 
         // ── Shutdown ──

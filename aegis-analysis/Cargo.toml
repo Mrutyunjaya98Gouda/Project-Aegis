@@ -9,6 +9,7 @@ aegis-common = { path = "../aegis-common" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+yara-x = "1.19.0"
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 chrono = { workspace = true }

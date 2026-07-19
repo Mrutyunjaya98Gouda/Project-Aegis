@@ -1,8 +1,8 @@
 /// ML-Based Keystroke Anomaly Detection Module (Stub)
 ///
-/// This module defines the interface for detecting BadUSB devices that
-/// simulate keyboard input. A real implementation would use an ONNX
-/// runtime to run a pre-trained model that analyzes HID input event
+/// NOTE: This module is currently a heuristic stub. It is NOT integrated 
+/// into the main analysis pipeline (`lib.rs`). A real implementation would 
+/// use an ONNX runtime to run a pre-trained model that analyzes HID input event
 /// timing patterns.
 ///
 /// BadUSB detection heuristics:

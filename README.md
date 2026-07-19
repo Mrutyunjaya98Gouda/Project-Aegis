@@ -5,6 +5,8 @@ Project Aegis is an enterprise-grade USB security daemon and desktop interface d
 ## Key Features
 * **Pre-mount Interception**: Enforces a hardware read-only state before the filesystem mounts using sysfs (`/sys/block/.../ro`).
 * **Deep Analysis Pipeline**: Analyzes block device data (first 512KB) using Shannon entropy to detect packed ransomware payloads, and scans for YARA signatures.
+* **ML Keystroke Anomaly Detection (In Development)**: Analyzes the cadence and timing of typing to differentiate a human from a BadUSB executing a pre-programmed payload. (Currently implemented as a heuristic stub).
+* **Dynamic Threat Intelligence (Planned)**: Syncs YARA rules and IOCs from central servers. (Currently stubbed).
 * **HID Spoof Detection**: Identifies mass storage devices that hide malicious keyboard interfaces.
 * **NIST SP 800-53 Audit Logging**: Maintains a tamper-proof event log secured by a cryptographic HMAC-SHA256 chain.
 * **Real-time UI**: A Tauri-based dashboard providing real-time device mapping (D3.js) and status notifications.
