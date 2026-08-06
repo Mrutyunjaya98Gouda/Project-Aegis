@@ -90,6 +90,7 @@ pub async fn handle_command(
             read_only: _,
         } => {
             let mut state = state.write().await;
+            let honey_tokens_enabled = state.config.analysis.honey_tokens_enabled;
             if let Some(device) = state.get_device_mut(&session_id) {
                 device.status = DeviceStatus::Authorized;
                 let _ = crate::interception::power_monitor::restore_port_power(&device.sysfs_path);
@@ -105,10 +106,31 @@ pub async fn handle_command(
                     }),
                 );
 
+                let mut msg = "Device authorized for mounting".to_string();
+
+                if honey_tokens_enabled {
+                    let (filename, _content, info) = aegis_analysis::honey_token::generate_honey_token(
+                        session_id,
+                        device.passport_hash.as_deref().unwrap_or("unknown"),
+                    );
+                    
+                    // In a production system, we would mount the device and write the file here.
+                    // For now, we simulate planting it.
+                    tracing::info!("Planted honey token {} for session {}", filename, session_id);
+                    let _ = logger.log(
+                        "analysis",
+                        "honey_token_planted",
+                        5,
+                        &format!("Planted honey token {} on device", filename),
+                        serde_json::to_value(&info).unwrap_or(serde_json::json!({})),
+                    );
+                    msg = format!("Device authorized. Honey token '{}' planted.", filename);
+                }
+
                 DaemonResponse::DeviceActionResult {
                     session_id,
                     new_status: DeviceStatus::Authorized,
-                    message: "Device authorized for mounting".to_string(),
+                    message: msg,
                 }
             } else {
                 DaemonResponse::Error {

@@ -2,6 +2,7 @@ pub mod entropy;
 pub mod hid_spoof;
 pub mod honey_token;
 pub mod ml_anomaly;
+pub mod sandbox;
 pub mod threat_intel;
 pub mod yara_engine;
 
@@ -14,11 +15,22 @@ pub struct AnalysisPipeline {
     pub entropy_threshold: f64,
     pub yara_enabled: bool,
     pub hid_spoof_enabled: bool,
+    pub ml_anomaly_enabled: bool,
+    pub sandbox_enabled: bool,
+    pub honey_tokens_enabled: bool,
     pub yara_engine: Option<yara_engine::YaraEngine>,
 }
 
 impl AnalysisPipeline {
-    pub fn new(entropy_threshold: f64, yara_enabled: bool, hid_spoof_enabled: bool, yara_rules_path: Option<&std::path::Path>) -> Self {
+    pub fn new(
+        entropy_threshold: f64,
+        yara_enabled: bool,
+        hid_spoof_enabled: bool,
+        ml_anomaly_enabled: bool,
+        sandbox_enabled: bool,
+        honey_tokens_enabled: bool,
+        yara_rules_path: Option<&std::path::Path>,
+    ) -> Self {
         let yara_engine = if yara_enabled {
             if let Some(path) = yara_rules_path {
                 match yara_engine::YaraEngine::new(path) {
@@ -40,6 +52,9 @@ impl AnalysisPipeline {
             entropy_threshold,
             yara_enabled,
             hid_spoof_enabled,
+            ml_anomaly_enabled,
+            sandbox_enabled,
+            honey_tokens_enabled,
             yara_engine,
         }
     }
@@ -49,6 +64,7 @@ impl AnalysisPipeline {
         &self,
         device: &UsbDevice,
         file_buffers: &[(&str, &[u8])],
+        keystrokes: Option<&[ml_anomaly::KeystrokeEvent]>,
     ) -> AegisResult<(u8, Vec<AnalysisResult>)> {
         let mut results = Vec::new();
         let mut penalty: i32 = 0;
@@ -86,6 +102,31 @@ impl AnalysisPipeline {
             }
         }
 
+        // 4. ML Keystroke Anomaly Detection
+        if self.ml_anomaly_enabled {
+            if let Some(events) = keystrokes {
+                let result = ml_anomaly::analyze_keystrokes(events, &ml_anomaly::AnomalyConfig::default());
+                if result.flagged {
+                    penalty += 40;
+                }
+                results.push(result);
+            }
+        }
+
+        // 5. Dynamic Sandbox Detonation
+        if self.sandbox_enabled {
+            for (filename, buffer) in file_buffers {
+                // If it's highly suspicious based on entropy or size, detonate it
+                if buffer.len() > 1024 {
+                    let result = sandbox::detonate_payload(filename, buffer);
+                    if result.flagged {
+                        penalty += 50;
+                    }
+                    results.push(result);
+                }
+            }
+        }
+
         // Compute trust score: start at 100, subtract penalties, floor at 0.
         let trust_score = (100i32 - penalty).max(0) as u8;
 
@@ -108,12 +149,12 @@ mod tests {
             3,
             "/sys/bus/usb/001/003".to_string(),
         );
-        let pipeline = AnalysisPipeline::new(7.5, false, true, None);
+        let pipeline = AnalysisPipeline::new(7.5, false, true, false, false, false, None);
 
         let clean_data = b"Hello, this is a normal text file with low entropy content.";
         let buffers: Vec<(&str, &[u8])> = vec![("readme.txt", clean_data)];
 
-        let (score, results) = pipeline.analyze(&device, &buffers).unwrap();
+        let (score, results) = pipeline.analyze(&device, &buffers, None).unwrap();
         assert!(
             score >= 85,
             "Clean device should have high trust score, got {score}"

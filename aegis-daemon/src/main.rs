@@ -14,6 +14,7 @@ use tracing_subscriber::EnvFilter;
 
 /// Sample the first `max_bytes` from a block device for analysis.
 /// Returns an empty Vec if the device is inaccessible or has no block path.
+/// Retries up to 5 times with 200ms delay to handle devtmpfs race conditions.
 fn sample_block_device(block_device: &Option<String>, max_bytes: usize) -> Vec<u8> {
     let Some(dev_path) = block_device.as_deref() else {
         return Vec::new();
@@ -24,31 +25,45 @@ fn sample_block_device(block_device: &Option<String>, max_bytes: usize) -> Vec<u
             tracing::warn!("Write-blocker failed for {dev_path}: {e} (running without root?)");
         }
     }
-    match std::fs::File::open(dev_path) {
-        Ok(mut file) => {
-            use std::io::Read;
-            let mut buf = vec![0u8; max_bytes];
-            match file.read(&mut buf) {
-                Ok(n) => {
-                    buf.truncate(n);
-                    tracing::debug!(
-                        device = dev_path,
-                        bytes_read = n,
-                        "Block device sampled for analysis"
-                    );
-                    buf
-                }
-                Err(e) => {
-                    tracing::warn!("Could not read block device {dev_path}: {e}");
-                    Vec::new()
+
+    // Retry loop: devtmpfs can take 100–300ms to create /dev/sdX after udev fires
+    const MAX_RETRIES: u32 = 5;
+    const RETRY_DELAY: Duration = Duration::from_millis(200);
+
+    for attempt in 1..=MAX_RETRIES {
+        match std::fs::File::open(dev_path) {
+            Ok(mut file) => {
+                use std::io::Read;
+                let mut buf = vec![0u8; max_bytes];
+                match file.read(&mut buf) {
+                    Ok(n) => {
+                        buf.truncate(n);
+                        tracing::debug!(
+                            device = dev_path,
+                            bytes_read = n,
+                            attempt,
+                            "Block device sampled for analysis"
+                        );
+                        return buf;
+                    }
+                    Err(e) => {
+                        tracing::warn!("Could not read block device {dev_path}: {e}");
+                        return Vec::new();
+                    }
                 }
             }
-        }
-        Err(e) => {
-            tracing::warn!("Could not open block device {dev_path}: {e} (may need root)");
-            Vec::new()
+            Err(_) if attempt < MAX_RETRIES => {
+                std::thread::sleep(RETRY_DELAY);
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Could not open block device {dev_path} after {MAX_RETRIES} attempts: {e}"
+                );
+                return Vec::new();
+            }
         }
     }
+    Vec::new()
 }
 
 #[tokio::main]
@@ -107,6 +122,9 @@ async fn main() -> anyhow::Result<()> {
         config.analysis.entropy_threshold,
         config.analysis.yara_enabled,
         config.analysis.hid_spoof_detection,
+        config.analysis.ml_anomaly_detection,
+        config.analysis.sandbox_enabled,
+        config.analysis.honey_tokens_enabled,
         Some(&yara_rules_path),
     );
     let pipeline = Arc::new(pipeline);
@@ -261,7 +279,7 @@ async fn main() -> anyhow::Result<()> {
                             vec![("device_sample.bin", raw_sample.as_slice())]
                         };
 
-                        if let Ok((score, results)) = pipeline.analyze(&dev, &buffers) {
+                        if let Ok((score, results)) = pipeline.analyze(&dev, &buffers, None) {
                             let mut s = state_ref.write().await;
                             if let Some(d) = s.get_device_mut(&session_id) {
                                 d.trust_score = score;
@@ -292,23 +310,23 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
 
-                if let Some(sid) = to_remove {
-                    if let Some(port) = removed_port {
-                        known_ports.remove(&port);
-                        tracing::info!("🔌 Device removed from {}", port);
-                        
-                        let mut state = poll_state.write().await;
-                        state.remove_device(&sid);
+                if let Some(sid) = to_remove
+                    && let Some(port) = removed_port
+                {
+                    known_ports.remove(&port);
+                    tracing::info!("🔌 Device removed from {}", port);
+                    
+                    let mut state = poll_state.write().await;
+                    state.remove_device(&sid);
 
-                        let mut logger = poll_logger.write().await;
-                        let _ = logger.log(
-                            "device",
-                            "device_disconnected",
-                            1,
-                            "USB device removed",
-                            serde_json::json!({ "session_id": sid, "port": port }),
-                        );
-                    }
+                    let mut logger = poll_logger.write().await;
+                    let _ = logger.log(
+                        "device",
+                        "device_disconnected",
+                        1,
+                        "USB device removed",
+                        serde_json::json!({ "session_id": sid, "port": port }),
+                    );
                 }
             }
         }

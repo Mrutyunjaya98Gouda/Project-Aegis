@@ -4,7 +4,7 @@ fn daemon_socket_path() -> String {
         .unwrap_or_else(|_| "/tmp/aegis.sock".to_string())
 }
 use aegis_common::ipc::{DaemonCommand, DaemonResponse, IpcMessage};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::time::{timeout, Duration};
